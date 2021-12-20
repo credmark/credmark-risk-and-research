@@ -8,6 +8,7 @@ from datetime import datetime
 from gql import gql, Client
 from gql.transport.requests import RequestsHTTPTransport
 
+#Formatted
 names ={"DAI"  : 'dai',
     "SAI"   : 'sai',
     "REP"   : 'augur',
@@ -27,9 +28,12 @@ names ={"DAI"  : 'dai',
     "ZRX"   : "0x",
     #"COMP"  : "compound"
 }
+
+
 def change():    
     columns = []
     columns.append('timestamp')
+    print(names)
     for key in list(names.keys()):
         columns.append(key+'_price')
         columns.append(key+'_%change(10)')
@@ -51,10 +55,12 @@ def change():
     for asset in list(names.keys()):#[:LIMIT]:
         if asset == 'WBTC':
             continue
+        print("DEBUG 1 ", asset)
         request = requests.get("https://api.coingecko.com/api/v3/coins/"+ str(names[asset])+ "/market_chart?vs_currency=usd&days=max&interval=daily")
         data = request.json()
         tt = []
         P = []
+        # print("DEBUG 1 ", data)
         if len(data['prices']) < LOOK_BACK:
             req = LOOK_BACK - len(data['prices'])
             addition = WBTC[-LOOK_BACK:  -LOOK_BACK + req ]
@@ -62,15 +68,15 @@ def change():
             track[asset] = req
         else:
             data['prices'] = data['prices'][-LOOK_BACK:]
-        
+
         for day in data['prices']:
             tt.append(day[0]/1000)
             P.append(day[1])
         df[asset+'_price'] = P
-        df['timestamp']  = tt
-    df['timestamp'] = tt
+#         df['timestamp']  = tt
+#     df['timestamp'] = tt
     for asset in list(names.keys()):#[:LIMIT]:
-        
+
         diff_10 = pd.DataFrame(df[asset+'_price'].diff(periods=10) )
         change = []
         for i in range(10):
@@ -78,7 +84,7 @@ def change():
         for i in range(10,df.shape[0]):
             change.append((diff_10.iloc[i][asset+'_price'] / df.iloc[i-10][asset+'_price']) * 100)
         df[asset+'_%change(10)'] = change
-        
+
         diff_1 = pd.DataFrame(df[asset+'_price'].diff(periods=1) )
         change = []
         for i in range(10):
@@ -93,11 +99,9 @@ def change():
     df  = df.iloc[::-1]
     df  = df.reset_index()
     df = df.drop(['index'], axis=1)
-
     df = df[:-10]
-    return df
-
-
+    print("CHECK POINT ")
+    return df[1:]
 def main():
 
     transactionResponse = {"result":{"COMPOUND":{"data":{}, "context":{"errors":[]}}}}
@@ -193,11 +197,17 @@ def main():
 
     historicalVAR = historicalVAR[:365]
 
-    
+
     # REQUIRED_10.sort()#(reverse=True)
     # REQUIRED_1.sort()#(reverse=True)
     REQUIRED_10 = historicalVAR.sort_values('VAR_10').iloc[3]
     REQUIRED_1 = historicalVAR.sort_values('VAR_1').iloc[3]
+
+    # print("TESTING REQUIRED VALUES")
+    # print(REQUIRED_10)
+    # print("Historical Test")
+    # print(historicalVAR.sort_values('VAR_10').head())
+    # print()
 
     REQUIRED_10_95 = historicalVAR.sort_values('VAR_10').iloc[9]
     REQUIRED_1_95 = historicalVAR.sort_values('VAR_1').iloc[9]
