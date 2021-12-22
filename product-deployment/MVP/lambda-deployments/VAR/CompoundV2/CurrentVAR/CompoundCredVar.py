@@ -9,31 +9,44 @@ from gql import gql, Client
 from gql.transport.requests import RequestsHTTPTransport
 
 #Formatted
-names ={"DAI"  : 'dai',
-    "SAI"   : 'sai',
-    "REP"   : 'augur',
-    "TUSD"  : 'true-usd',
-    "USDC"  : 'usd-coin',
-    "USDT"  : "tether",
-    "ETH"   : "ethereum",
-    "LINK"  : "chainlink",
-    "MKR"   : "maker",
-    "RAI"   : "rai",
-    "UNI"   : "uniswap",
-    "WBTC"  : "wrapped-bitcoin",
-    "SUSHI": "sushi",
-    "YFI"   : "yearn-finance",
-    "AAVE"  : "aave",
-    "BAT"   : "basic-attention-token",
-    "ZRX"   : "0x",
-    #"COMP"  : "compound"
-}
+names = {"DAI"  : 'dai',
+        "SAI"   : 'sai',
+        "REP"   : 'augur',
+        "GUSD"  : 'gemini-dollar',
+        "SUSD"  : 'susd',
+        "TUSD"  : 'true-usd',
+        "USDC"  : 'usd-coin',
+        "USDP"  : 'usdp',
+        "USDT"  : "tether",
+        "BAL"   : "balancer",
+        "ETH"   : "ethereum",
+        "LINK"  : "chainlink",
+        "MKR"   : "maker",
+        "RAI"   : "rai",
+        "UNI"   : "uniswap",
+        "WBTC"  : "wrapped-bitcoin",
+        "SUSHI":  "sushi",
+        "YFI"   : "yearn-finance",
+        "BUSD"  : "binance-usd",
+        "FEI"   : "fei-usd",
+        "FRAX"  : "frax",
+        "AAVE"  : "aave",
+        "AMPL"  : "ampleforth",
+        "BAT"   : "basic-attention-token",
+        "CRV"   : "curve-dao-token",
+        "DPI"   : "defipulse-index",
+        "ENJ"   : "enjin-coin",
+        "KNC"   : "kyber-network-crystal",
+        "MANA"  : "decentraland",
+        "REN"   : "ren",
+        "RENFIL": "renfil",
+        "SNX"   :"synthetix-network-token",
+        "ZRX"   : "0x"
+        }
 
-
-def change():    
+def change():
     columns = []
     columns.append('timestamp')
-    print(names)
     for key in list(names.keys()):
         columns.append(key+'_price')
         columns.append(key+'_%change(10)')
@@ -55,43 +68,66 @@ def change():
     for asset in list(names.keys()):#[:LIMIT]:
         if asset == 'WBTC':
             continue
-        print("DEBUG 1 ", asset)
         request = requests.get("https://api.coingecko.com/api/v3/coins/"+ str(names[asset])+ "/market_chart?vs_currency=usd&days=max&interval=daily")
-        data = request.json()
-        tt = []
-        P = []
-        # print("DEBUG 1 ", data)
-        if len(data['prices']) < LOOK_BACK:
-            req = LOOK_BACK - len(data['prices'])
-            addition = WBTC[-LOOK_BACK:  -LOOK_BACK + req ]
-            data['prices'] = addition + data['prices']
-            track[asset] = req
-        else:
-            data['prices'] = data['prices'][-LOOK_BACK:]
+        P    = []
+        if request.status_code != 200:
+            data = {}
+            data['prices'] = WBTC[ -LOOK_BACK: ]
+            for day in data['prices']:
+                P.append(day)
+        else:   
+            data = request.json()
+            tt   = []
+            
 
-        for day in data['prices']:
-            tt.append(day[0]/1000)
-            P.append(day[1])
+            if len(data['prices']) < LOOK_BACK:
+                req = LOOK_BACK - len(data['prices'])
+                addition = WBTC[-LOOK_BACK:  -LOOK_BACK + req ]
+                data['prices'] = addition + data['prices']
+                track[asset] = req
+            else:
+                data['prices'] = data['prices'][-LOOK_BACK:]
+
+            for day in data['prices']:
+                tt.append(day[0]/1000)
+                P.append(day[1])
+                
         df[asset+'_price'] = P
-#         df['timestamp']  = tt
-#     df['timestamp'] = tt
+        df['timestamp']  = tt
+    df['timestamp'] = tt
+    
+    print("PRICES FETECHED")
+    
+    unknown_assets = ['PAX']
     for asset in list(names.keys()):#[:LIMIT]:
+        try:
+            change = []
+            diff_10 = pd.DataFrame(df[asset+'_price'].diff(periods=10) )
+            
+            for i in range(10):
+                change.append('Nan')
+            for i in range(10,df.shape[0]):
+                change.append((diff_10.iloc[i][asset+'_price'] / df.iloc[i-10][asset+'_price']) * 100)
+            df[asset+'_%change(10)'] = change
 
-        diff_10 = pd.DataFrame(df[asset+'_price'].diff(periods=10) )
-        change = []
-        for i in range(10):
-            change.append('Nan')
-        for i in range(10,df.shape[0]):
-            change.append((diff_10.iloc[i][asset+'_price'] / df.iloc[i-10][asset+'_price']) * 100)
-        df[asset+'_%change(10)'] = change
-
-        diff_1 = pd.DataFrame(df[asset+'_price'].diff(periods=1) )
-        change = []
-        for i in range(10):
-            change.append('Nan')
-        for i in range(10,df.shape[0]):
-            change.append((diff_1.iloc[i][asset+'_price'] / df.iloc[i-10][asset+'_price']) * 100)
-        df[asset+'_%change(1)'] = change        
+            diff_1 = pd.DataFrame(df[asset+'_price'].diff(periods=1) )
+            change = []
+            for i in range(10):
+                change.append('Nan')
+            for i in range(10,df.shape[0]):
+                change.append((diff_1.iloc[i][asset+'_price'] / df.iloc[i-10][asset+'_price']) * 100)
+            df[asset+'_%change(1)'] = change  
+            
+        except Exception as e:
+            unknown_assets.append(asset)
+            print("Error ", asset, e)
+    
+    for asset in unknown_assets:
+        df[asset+'_%change(1)']  = df['WBTC_%change(1)'] 
+        df[asset+'_%change(10)'] = df['WBTC_%change(10)'] 
+    df['PAX_%change(10)'] = df['WBTC_%change(10)'] 
+    df['PAX_%change(1)'] = df['WBTC_%change(1)'] 
+        
     for key in track.keys():
         df[key+'_%change(10)'][:track[key]] = df['WBTC_%change(10)'][:track[key]]
 
@@ -99,9 +135,12 @@ def change():
     df  = df.iloc[::-1]
     df  = df.reset_index()
     df = df.drop(['index'], axis=1)
+
     df = df[:-10]
+
     print("CHECK POINT ")
-    return df[1:]
+    return df
+
 def main():
 
     transactionResponse = {"result":{"COMPOUND":{"data":{}, "context":{"errors":[]}}}}

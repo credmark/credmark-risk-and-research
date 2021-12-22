@@ -3,12 +3,11 @@ import os
 import json
 import requests
 import pandas as pd
+from datetime import timedelta
+from datetime import datetime
 from gql import gql, Client
 from gql.transport.requests import RequestsHTTPTransport
-# os.environ['WEB3_INFURA_PROJECT_ID'] = '8977aae7711040c7a7e43001eeddfacf'
-# from web3 import Web3
-# from web3.auto.infura import w3
-# w3 = Web3(Web3.HTTPProvider('https://mainnet.infura.io/v3/8977aae7711040c7a7e43001eeddfacf'))
+
 
 class TotalMarketExtractor():
     
@@ -90,6 +89,25 @@ class TotalMarketExtractor():
         self.AMM_Tokens                 = []
         
         
+        req_date = datetime(2021,12,21).date().strftime("%m-%d-%Y") 
+        aave_v2_price_response = requests.get('https://aave-api-v2.aave.com/data/liquidity/v2?poolId=0xb53c1a33016b2dc2ff3653530bff1848a515c8c5&date='+str(req_date))      
+        aave_v2_price_dict_backup = {}
+        for res in aave_v2_price_response.json():
+            aave_v2_price_dict_backup[res['symbol']] = float(res['referenceItem']['priceInUsd'])
+            
+        
+        
+        req_date = (datetime.now() - timedelta(1)).date().strftime("%m-%d-%Y") 
+        aave_v2_price_response = requests.get('https://aave-api-v2.aave.com/data/liquidity/v2?poolId=0xb53c1a33016b2dc2ff3653530bff1848a515c8c5&date='+str(req_date))      
+        self.aave_v2_price_dict = {}
+        if len(aave_v2_price_response.json()) == 0:
+            self.aave_v2_price_dict  = aave_v2_price_dict_backup
+        else:
+            for res in aave_v2_price_response.json():
+                self.aave_v2_price_dict[res['symbol']] = float(res['referenceItem']['priceInUsd'])
+            self.aave_v2_price_dict_backup = self.aave_v2_price_dict
+        
+        
     def V2_update(self):
         response   = self.V2_client.execute(gql(self.graph_token_query))
         V2_tokens = []
@@ -115,13 +133,15 @@ class TotalMarketExtractor():
                 ITER['percentDepositAPY']        = round(100 * ITER['liquidityRate']/self.RAY,      5)
                 ITER['percentVariableBorrowAPY'] = round(100 * ITER['variableBorrowRate']/self.RAY, 5)
                 ITER['percentStableBorrowAPY']   = round(100 * ITER['stableBorrowRate']/self.RAY,  10)
-                self.V2_Liabilities              =  ITER['MARKET']
-                self.V2_Assets                   =  ITER['totalBorrow']
-                self.V2_LIABILITIES_SUM          += ITER['MARKET']
-                self.V2_Assets_SUM               += ITER['totalBorrow']
+                
+                self.V2_Liabilities              =  ITER['MARKET']      * self.aave_v2_price_dict[TOKEN_KEY]
+                self.V2_Assets                   =  ITER['totalBorrow'] * self.aave_v2_price_dict[TOKEN_KEY]
+                self.V2_LIABILITIES_SUM          += ITER['MARKET']      * self.aave_v2_price_dict[TOKEN_KEY]
+                self.V2_Assets_SUM               += ITER['totalBorrow'] * self.aave_v2_price_dict[TOKEN_KEY]
                 ITER_[TOKEN_KEY]                 = ITER
                 self.OUTPUT['response']['data']['AAVEV2'].append(ITER_)                 
             except Exception as e:
+                print("ERROR ", e)
                 self.errors.append(TOKEN_KEY + " TOKEN NOT EXISTS on V2 subgraph")
         
     def V1_update(self):
@@ -129,7 +149,7 @@ class TotalMarketExtractor():
         response   = self.V1_client.execute(gql(self.graph_token_query))
         V1_tokens = []
         for reserve in response['reserves']:
-            if 'Amm' not in reserve['symbol']:
+            if 'Amm' not in reserve['symbol'] and 'Uni' not in reserve['symbol']:
                 V1_tokens.append(reserve['symbol'])
             else:
                 self.AMM_Tokens.append(reserve['symbol'])
@@ -151,13 +171,22 @@ class TotalMarketExtractor():
                 ITER['percentDepositAPY']         = round(100 * ITER['liquidityRate']/self.RAY,      5)
                 ITER['percentVariableBorrowAPY']  = round(100 * ITER['variableBorrowRate']/self.RAY, 5)
                 ITER['percentStableBorrowAPY']    = round(100 * ITER['stableBorrowRate']/self.RAY,  10)
-                self.V1_Liabilities               =  ITER['MARKET']
-                self.V1_Assets                    =  ITER['totalBorrow']
-                self.V1_LIABILITIES_SUM           += ITER['MARKET']
-                self.V1_Assets_SUM                += ITER['totalBorrow']
+                
+                if TOKEN_KEY in ['REP','LEND','ETH']:
+                    if TOKEN_KEY == 'ETH':
+                        TOKEN_KEY = 'WETH'
+                    else:
+                        TOKEN_KEY = 'USDC'
+
+                self.V1_Liabilities               =  ITER['MARKET']      * self.aave_v2_price_dict[TOKEN_KEY]
+                self.V1_Assets                    =  ITER['totalBorrow'] * self.aave_v2_price_dict[TOKEN_KEY]
+                self.V1_LIABILITIES_SUM           += ITER['MARKET']      * self.aave_v2_price_dict[TOKEN_KEY]
+                self.V1_Assets_SUM                += ITER['totalBorrow'] * self.aave_v2_price_dict[TOKEN_KEY]
+                
                 ITER_[TOKEN_KEY]                  = ITER
-                self.OUTPUT['response']['data']['v1'].append(ITER_)
+                self.OUTPUT['response']['data']['V1'].append(ITER_)
             except Exception as e:
+                print("ERROR ", e)
                 self.errors.append(TOKEN_KEY + " TOKEN NOT EXISTS on V1 subgraph")
 
     
@@ -187,13 +216,22 @@ class TotalMarketExtractor():
                 ITER['percentDepositAPY']        = round(100 * ITER['liquidityRate']/self.RAY,      5)
                 ITER['percentVariableBorrowAPY'] = round(100 * ITER['variableBorrowRate']/self.RAY, 5)
                 ITER['percentStableBorrowAPY']   = round(100 * ITER['stableBorrowRate']/self.RAY,  10)
-                self.MATIC_Liabilities           = ITER['MARKET']
-                self.MATIC_Assets                = ITER['totalBorrow']
-                self.MATIC_LIABILITIES_SUM       += ITER['MARKET']
-                self.MATIC_Assets_SUM            += ITER['totalBorrow']
+                if TOKEN_KEY == 'WMATIC':
+                    self.MATIC_Liabilities           = ITER['MARKET']      * 2
+                    self.MATIC_Assets                = ITER['totalBorrow'] * 2 
+                    self.MATIC_LIABILITIES_SUM       += ITER['MARKET']     * 2
+                    self.MATIC_Assets_SUM            += ITER['totalBorrow']* 2
+                
+                else:
+                    self.MATIC_Liabilities           = ITER['MARKET']      * self.aave_v2_price_dict[TOKEN_KEY]
+                    self.MATIC_Assets                = ITER['totalBorrow'] * self.aave_v2_price_dict[TOKEN_KEY]
+                    self.MATIC_LIABILITIES_SUM       += ITER['MARKET']     * self.aave_v2_price_dict[TOKEN_KEY]
+                    self.MATIC_Assets_SUM            += ITER['totalBorrow']* self.aave_v2_price_dict[TOKEN_KEY]
+                
                 ITER_[TOKEN_KEY]                  = ITER
-                self.OUTPUT['response']['data']['matic'].append(ITER_)
+                self.OUTPUT['response']['data']['MATIC'].append(ITER_)
             except Exception as e:
+                print("ERROR ", e)
                 self.errors.append(TOKEN_KEY + " TOKEN NOT EXISTS on V1 subgraph")
         
         
@@ -223,13 +261,26 @@ class TotalMarketExtractor():
                 ITER['percentDepositAPY']        = round(100 * ITER['liquidityRate']/self.RAY,      5)
                 ITER['percentVariableBorrowAPY'] = round(100 * ITER['variableBorrowRate']/self.RAY, 5)
                 ITER['percentStableBorrowAPY']   = round(100 * ITER['stableBorrowRate']/self.RAY,  10)
-                self.Avalanche_Liabilities       = ITER['MARKET']   
-                self.Avalanche_Assets            = ITER['totalBorrow']
-                self.Avalanche_LIABILITIES_SUM   += ITER['MARKET']   
-                self.Avalanche_Assets_SUM        += ITER['totalBorrow']
+                
+                TOKEN_KEY = TOKEN_KEY.split('.')[0]
+            
+                if TOKEN_KEY == 'WAVAX':
+                    self.Avalanche_Liabilities       = ITER['MARKET']       * 120
+                    self.Avalanche_Assets            = ITER['totalBorrow']  * 120
+                    self.Avalanche_LIABILITIES_SUM   += ITER['MARKET']      * 120
+                    self.Avalanche_Assets_SUM        += ITER['totalBorrow'] * 120
+
+                else:
+                    self.Avalanche_Liabilities       = ITER['MARKET']       * self.aave_v2_price_dict[TOKEN_KEY]
+                    self.Avalanche_Assets            = ITER['totalBorrow']  * self.aave_v2_price_dict[TOKEN_KEY]
+                    self.Avalanche_LIABILITIES_SUM   += ITER['MARKET']      * self.aave_v2_price_dict[TOKEN_KEY]
+                    self.Avalanche_Assets_SUM        += ITER['totalBorrow'] * self.aave_v2_price_dict[TOKEN_KEY]
+                    
+                    
                 ITER_[TOKEN_KEY]                 = ITER
-                self.OUTPUT['response']['data']['avalanche'].append(ITER_)
+                self.OUTPUT['response']['data']['AVALANCHE'].append(ITER_)
             except Exception as e:
+                print("ERROR ", e)
                 self.errors.append(TOKEN_KEY + str(e)+ " TOKEN NOT EXISTS on AVALANCHE subgraph")
         
     
@@ -243,15 +294,17 @@ class TotalMarketExtractor():
         if len(self.errors)>0:
             self.OUTPUT['status'] = 300
         
-        # print("Return Order ($) ", " V1 , MATIC/MATIC , Avalanche ")
     
     def get_total_Assets(self):
         return self.V2_Assets_SUM + self.V1_Assets_SUM + self.MATIC_Assets_SUM + self.Avalanche_Assets_SUM
 
     def get_total_Liabilities(self):
-        return self.V2_LIABILITIES_SUM + self.V1_LIABILITIES_SUM + self.MATIC_LIABILITIES_SUM + self.Avalanche_LIABILITIES_SUM
+        print(self.V2_LIABILITIES_SUM , self.V1_LIABILITIES_SUM , self.MATIC_LIABILITIES_SUM , self.Avalanche_LIABILITIES_SUM)
+        LIAB = self.V2_LIABILITIES_SUM + self.V1_LIABILITIES_SUM + self.MATIC_LIABILITIES_SUM + self.Avalanche_LIABILITIES_SUM
+        return LIAB
     
     def set_get_V2_RATIO(self):
+        print("DEBUG ", self.V2_LIABILITIES_SUM , self.get_total_Liabilities())
         self.OUTPUT['response']['result']['AAVEV2']['data']['v2_ratio'] = self.V2_LIABILITIES_SUM / self.get_total_Liabilities()
         return self.OUTPUT['response']['result']['AAVEV2']['data']['v2_ratio']
     
@@ -264,21 +317,19 @@ class TotalMarketExtractor():
         print("Fetching LiabilitiesCAP ")
         self.set_AAVE_MARKET_CAP()
         # print("MARKET CAP : ",self.AAVE_MARKET_CAP)
-        self.OUTPUT['response']['result']['AAVEV2']['data']['total_assets'] = self.get_total_Assets()
-        self.OUTPUT['response']['result']['AAVEV2']['data']['total_liabilities'] = self.get_total_Liabilities()
+        self.OUTPUT['response']['result']['AAVEV2']['data']['total_assets'] = self.V2_Assets_SUM# self.get_total_Assets()
+        self.OUTPUT['response']['result']['AAVEV2']['data']['total_liabilities'] = self.V2_LIABILITIES_SUM# self.get_total_Liabilities()
         
         #v2_market_cap * (1-30%) / (v2_Assets * 0.2+ v2_assets * 0.1)
-        self.OUTPUT['response']['result']['AAVEV2']['data']['lcr'] = (self.AAVE_MARKET_CAP *self.set_get_V2_RATIO() * 0.3 ) / \
-                                                    ( self.V2_LIABILITIES_SUM * 0.2 + self.V2_Assets_SUM * 0.1 )
-      
-
+        self.OUTPUT['response']['result']['AAVEV2']['data']['lcr'] = (self.AAVE_MARKET_CAP * self.set_get_V2_RATIO() * 0.7 ) / \
+                                                    ( self.V2_LIABILITIES_SUM * 0.2 + self.V2_Assets_SUM * 0.1 )      
 
 def lambda_handler(event, context):
     print("Handler called")
     response = {}
     transactionResponse = {}
     try:
-        event           = json.loads(event)
+        # event           = json.loads(event)
         payload         = event["body"]
         marketExtractor = TotalMarketExtractor()
         marketExtractor.calculate()
@@ -301,11 +352,11 @@ def lambda_handler(event, context):
     response = transactionResponse
     return response
 
-if __name__ == "__main__":
-    input_data = {'body':{
+# if __name__ == "__main__":
+#     input_data = {'body':{
 
-                        }
-                }
-    input_json = json.dumps(input_data)
-    result = lambda_handler(input_json,"Context")
-    print(result)
+#                         }
+#                 }
+#     input_json = json.dumps(input_data)
+#     result = lambda_handler(input_json,"Context")
+#     print(result)
