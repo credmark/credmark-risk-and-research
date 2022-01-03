@@ -1,5 +1,6 @@
 # Define custom function directory
 ARG FUNCTION_DIR="/function"
+ARG MODULE_TOP_LEVEL_DIRECTORY="protocol"
 
 FROM python:3.8-slim-buster as build-image
 
@@ -22,7 +23,8 @@ RUN pip install \
 
 # Copy function code
 RUN mkdir -p ${FUNCTION_DIR}
-COPY src/* ${FUNCTION_DIR}
+COPY src/${MODULE_TOP_LEVEL_DIRECTORY} ${FUNCTION_DIR}/${MODULE_TOP_LEVEL_DIRECTORY}
+COPY src/handlers.py ${FUNCTION_DIR}
 COPY requirements.txt ${FUNCTION_DIR}
 
 RUN pip install \
