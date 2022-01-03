@@ -1,0 +1,82 @@
+---
+service: risk-terminal-metrics
+
+frameworkVersion: '2'
+
+provider:
+  name: aws
+  lambdaHashingVersion: 20201221
+  stage: dev
+  region: us-west-2
+  ecr:
+    # In this section you can define images that will be built locally and uploaded to ECR
+    images:
+      baseRiskMetricsImage:
+        path: ./
+
+
+functions:
+  aave-lcr:
+    image:
+      name: "baseRiskMetricsImage"
+      command: ["handlers.aave_lcr_handler"]
+    events:
+      - http:
+          path: /lcr/aave
+          method: GET
+  aave-var:
+    image:
+      name: "baseRiskMetricsImage"
+      command: ["handlers.aave_var_handler"]
+    events:
+      - http:
+          path: /var/aave
+          method: GET
+  aave-historical-lcr:
+    image:
+      name: "baseRiskMetricsImage"
+      command: ["handlers.aave_lcr_historical_handler"]
+    events:
+      - http:
+          path: /lcr/aave/historical
+          method: GET
+  aave-historical-var:
+    image:
+      name: "baseRiskMetricsImage"
+      command: ["handlers.aave_var_historical_handler"]
+    events:
+      - http:
+          path: /var/aave/historical
+          method: GET
+  compound-lcr:
+    image:
+      name: "baseRiskMetricsImage"
+      command: ["handlers.compound_lcr_handler"]
+    events:
+      - http:
+          path: /lcr/compound
+          method: GET
+  compound-var:
+    image:
+      name: "baseRiskMetricsImage"
+      command: ["handlers.compound_var_handler"]
+    events:
+      - http:
+          path: /var/compound
+          method: GET
+  compound-historical-lcr:
+    image:
+      name: "baseRiskMetricsImage"
+      command: ["handlers.compound_lcr_historical_handler"]
+    events:
+      - http:
+          path: /lcr/compound/historical
+          method: GET
+  compound-historical-var:
+    image:
+      name: "baseRiskMetricsImage"
+      command: ["handlers.compound_var_historical_handler"]
+    events:
+      - http:
+          path: /var/compound/historical
+          method: GET
