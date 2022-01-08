@@ -307,6 +307,7 @@ def main(look_back=1, duration = 180):
     # dt = datetime.now()
     # dt = dt.replace(tzinfo=timezone.utc)
     # print(dt)
+    print("Updated to current date")
     current_date = str(datetime.now().date().strftime("%m-%d-%Y"))
     
     print('https://aave-api-v2.aave.com/data/liquidity/v2?poolId=0xb53c1a33016b2dc2ff3653530bff1848a515c8c5&date='+current_date)
