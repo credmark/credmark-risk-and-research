@@ -6,7 +6,8 @@ import requests
 import numpy as np
 import pandas as pd
 from io import StringIO
-from datetime import datetime
+from datetime import timedelta
+from datetime import datetime, timezone
 from gql import gql, Client
 from gql.transport.requests import RequestsHTTPTransport
 
@@ -251,6 +252,9 @@ def main(look_back=1, duration = 180):
     df1['Asset($)']                 = df1['CurrentPrice'] * df1['position']
     df1['Asset($,Billion)']         = df1['Asset($)'] / pow(10, 9)
 
+    # TOTAL_ASSETS = df1['totalBorrow'].sum()
+    # TOTAL_LIABILITIES = df1['MARKET'].sum()
+
 
     df = change()
 
@@ -298,6 +302,29 @@ def main(look_back=1, duration = 180):
     var_date_10_95p = REQUIRED_10_95['date']
     var_date_1_99p = REQUIRED_1['date']
     var_date_1_95p = REQUIRED_1_95['date']
+
+
+    # dt = datetime.now()
+    # dt = dt.replace(tzinfo=timezone.utc)
+    # print(dt)
+    current_date = str(datetime.now().date().strftime("%m-%d-%Y"))
+    
+    print('https://aave-api-v2.aave.com/data/liquidity/v2?poolId=0xb53c1a33016b2dc2ff3653530bff1848a515c8c5&date='+current_date)
+    res = requests.get('https://aave-api-v2.aave.com/data/liquidity/v2?poolId=0xb53c1a33016b2dc2ff3653530bff1848a515c8c5&date='+current_date).json() #12-14-2021'
+    print("Print Test Res")
+    print(res)
+
+    df = pd.DataFrame(columns=['SYMBOL', 'totalLiquidity', 'totalDebt'])
+    ind = 0
+    for i in res:
+        df.loc[ind] = [i['symbol']] + [float(i['totalLiquidity']) * float(i['referenceItem']['priceInUsd']) ]\
+                    + [float(i['totalDebt']) * float(i['referenceItem']['priceInUsd'] )] #+ [i['referenceItem']['priceInUsd'] * ]
+        ind += 1
+
+    TOTAL_LIABILITIES = df['totalLiquidity'].sum()
+    TOTAL_ASSETS      = df['totalDebt'].sum()
+
+
     # response["statusCode"] = 200
     # print(REQUIRED_10[:10])
     # transactionResponse["result"]["AAVEV2"]["data"]['10_day_99p'] = str(REQUIRED_10[5])
@@ -314,6 +341,11 @@ def main(look_back=1, duration = 180):
 
     transactionResponse["result"]["AAVEV2"]["data"]['1_day_95p'] = str(REQUIRED_1_95['VAR_1'])
     transactionResponse["result"]["AAVEV2"]["data"]['var_date_1_day_95p'] = var_date_1_95p
+
+    transactionResponse["result"]["AAVEV2"]["data"]['relative_var_assets'] = str(REQUIRED_10['VAR_10'] * pow(10,9) / TOTAL_ASSETS)
+    transactionResponse["result"]["AAVEV2"]["data"]['relative_var_liabilities'] = str(REQUIRED_10['VAR_10'] * pow(10,9) / TOTAL_LIABILITIES)
+    transactionResponse["result"]["AAVEV2"]["data"]['total_assets'] = TOTAL_ASSETS
+    transactionResponse["result"]["AAVEV2"]["data"]['total_liabilities'] = TOTAL_LIABILITIES
 
     
 
