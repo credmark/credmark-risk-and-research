@@ -217,7 +217,7 @@ def main(look_back=1, duration = 180):
 
 
     print("DEBUG ", historicalVAR.shape)
-    historicalVAR = historicalVAR[:362]
+    historicalVAR = historicalVAR[:365]
 
     REQUIRED_10 = historicalVAR.sort_values('VAR_10').iloc[3]
     REQUIRED_1 = historicalVAR.sort_values('VAR_1').iloc[3]
