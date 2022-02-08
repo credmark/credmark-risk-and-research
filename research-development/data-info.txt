@@ -1,0 +1,73 @@
+Products to focus:
+
+1. Smart Pools - Uniswap V3 recommender based on Bollinger Bands
+	- Link: https://github.com/credmark/credmark-risk-and-research/tree/main/research-development/SmartPool
+	- Uniswap V3 Subgraph Data - Python GQL (Light Data)
+
+2. APR Engine - Uniswap V3 Strategy Output - JNP's Tool
+	- Link: https://github.com/credmark/credmark-risk-and-research/tree/main/research-development/APREngine
+	- Uniswap Data
+		- Swap Data, Liquidity Data (Heavy Data) (Subgraph) (Loops)
+		- AWS RDS - Storage of Swap and Liquidity Data
+
+3. Uniswap V3 Hackathon
+	- Link: https://github.com/credmark/credmark-risk-and-research/tree/main/src/HackathonScoringEngine
+	- Recommendation Engine
+	- Earlier we were using Bollinger
+	- Deep Learning LSTM won
+	- Scoring Engine
+	- Multiple pools for judgement
+
+
+4. Risk and Research
+	- Link: https://github.com/credmark/credmark-risk-and-research/blob/main/src/protocol/
+	- VaR ammd LCR (Risk Terminal)
+	- Aave and Compound
+	- Historical, Locally calculated, Lambda, that uploads the csv into the db - Lambda's can't sustain such calculation
+	- Current lambdas for these , run at midnight UTC
+
+
+5. Behavioral Data
+	- Link: https://github.com/credmark/credmark-risk-and-research/tree/main/research-development/WalletProfiling
+	- Uniswap V2 wallets - transactions (subgraph)
+	- Identified wallets in a list
+	- We got their history from Etherscan
+	- ERC 20 transactions - hex - need to be cleaned and presented in human manner
+
+6. On-chain data prices
+	- Link: https://docs.google.com/document/d/1v1YnJy4aXNOc8ss3jWRSNJ1TElgTKQcq57lqEEsFW7o/edit
+	- Pricing model we might need
+	- DEX
+	- Aggregators
+	- Oracle - Chainlink data
+
+
+
+
+
+
+
+
+
+Misc. Data Points:
+
+On-Chain data:
+1. Current Fetching - Smart Contract or the Native API
+	e.g. Compound and Aave APIs
+
+2. Historical Data - Native/Protocol API or the Subgraph (100 results per response limitation)
+	Other considerations - Smart Contract Data providers - Infura or Alchemy via changing block numbers
+
+
+CEX Data:
+1. Market Prices - Coingecko Market Prices (USD)
+
+
+
+
+
+
+
+
+
+
