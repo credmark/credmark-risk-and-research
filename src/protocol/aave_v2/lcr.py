@@ -92,10 +92,22 @@ class TotalMarketExtractor():
         req_date = datetime(2021,12,21).date().strftime("%m-%d-%Y") 
         aave_v2_price_response = requests.get('https://aave-api-v2.aave.com/data/liquidity/v2?poolId=0xb53c1a33016b2dc2ff3653530bff1848a515c8c5&date='+str(req_date))      
         aave_v2_price_dict_backup = {}
+        ERROR_SYMBOLS             = []
         for res in aave_v2_price_response.json():
-            aave_v2_price_dict_backup[res['symbol']] = float(res['referenceItem']['priceInUsd'])
+            try:
+                # print(res['symbol'])
+                aave_v2_price_dict_backup[res['symbol']] = float(res['referenceItem']['priceInUsd'])
+            except Exception as e:
+                ERROR_SYMBOLS.append(res['symbol'])
+
+                
             
-        
+        for symbol in ERROR_SYMBOLS:
+            if symbol == 'STETH':
+                aave_v2_price_dict_backup[res['symbol']] = aave_v2_price_dict_backup['WETH']
+            else:
+                aave_v2_price_dict_backup[res['symbol']] = aave_v2_price_dict_backup['USDC']
+                raise Exception("New Token Found")
         
         req_date = (datetime.now() - timedelta(1)).date().strftime("%m-%d-%Y") 
         aave_v2_price_response = requests.get('https://aave-api-v2.aave.com/data/liquidity/v2?poolId=0xb53c1a33016b2dc2ff3653530bff1848a515c8c5&date='+str(req_date))      
@@ -329,8 +341,6 @@ def lambda_handler(event, context):
     response = {}
     transactionResponse = {}
     try:
-        # event           = json.loads(event)
-        payload         = event["body"]
         marketExtractor = TotalMarketExtractor()
         marketExtractor.calculate()
         marketExtractor.get_LCR()
@@ -339,7 +349,7 @@ def lambda_handler(event, context):
 
     except Exception as e:
 
-        s = str(e)
+        s = str(e) 
         response["statusCode"] = 400
         transactionResponse["error"] = True
         transactionResponse["message"] = s
@@ -359,4 +369,4 @@ def lambda_handler(event, context):
 #                 }
 #     input_json = json.dumps(input_data)
 #     result = lambda_handler(input_json,"Context")
-#     print(result)
+    # print(result)
